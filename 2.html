@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>春城轨道交通 | 交互式线路指南</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.3.3/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 线路颜色定义（严格匹配） */
+        :root {
+            --line6: #5CFF00;    /* 6号线-亮绿 */
+            --line7: #9CE650;    /* 7号线-浅绿 */
+            --line3: #C9F877;    /* 行铁线-淡黄 */
+            --line4: #12E07B;    /* 新西北线-青绿 */
+            --line5: #9655D7;    /* 市郊线-紫 */
+            --line6_ldx: #5506AB;/* 罗东线-深紫 */
+            --line7_ccgt: #DBD573;/* 岑村高铁-米黄 */
+            --line8_sjj: #95B0ED;/* 上京线-淡蓝 */
+            --line9_sjd: #63AED3;/* 上京东线-浅蓝 */
+            --line10_lcb: #B50592;/* 罗村北线-紫红 */
+            --line11_xhx: #171499;/* 西河线-深蓝 */
+            --line12_qh1: #F102C8;/* 前湖1号线-粉红 */
+            --line13_qh2: #129B27;/* 前湖2号线-深绿 */
+            --line14_qh3: #51B9E9;/* 前湖3号线-天蓝 */
+        }
+        /* 卡片交互样式 */
+        .line-card {
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .line-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+        .line-badge {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            margin-right: 8px;
+            display: inline-block;
+        }
+        /* 模态框样式 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            padding: 40px 20px;
+            overflow-y: auto;
+        }
+        .modal-content {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 28px;
+            cursor: pointer;
+            color: #666;
+        }
+        .img-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+        }
+        .img-item {
+            border-radius: 8px;
+            overflow: hidden;
+            height: 180px;
+            background: #f0f0f0;
+        }
+        .img-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        /* Modrinth按钮专属样式（与现有按钮统一风格） */
+        .modrinth-btn {
+            background-color: var(--line13_qh2); /* 复用前湖2号线深绿色，保持视觉统一 */
+            color: white;
+            border-radius: 6px;
+            padding: 10px 20px;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modrinth-btn:hover {
+            background-color: #0e7c20; /* hover深色变化，与现有下载按钮一致 */
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- 导航栏 -->
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="container mx-auto px-6">
+            <div class="flex justify-between items-center py-4">
+                <a href="#" class="flex items-center space-x-2">
+                    <i class="fas fa-subway text-[var(--line13_qh2)] text-2xl"></i>
+                    <h1 class="text-xl font-bold">春城轨交</h1>
+                </a>
+                <div class="flex space-x-8">
+                    <a href="#map" class="text-gray-700 hover:text-[var(--line13_qh2)]">线路总图</a>
+                    <a href="#lines" class="text-gray-700 hover:text-[var(--line13_qh2)]">线路库</a>
+                    <a href="#download" class="text-gray-700 hover:text-[var(--line13_qh2)]">下载地图</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <!-- 英雄区域 -->
+    <header class="bg-[var(--line13_qh2)] text-white py-24">
+        <div class="container mx-auto px-6 text-center">
+            <h2 class="text-3xl font-bold mb-6">探索春城14条轨道交通线路</h2>
+            <p class="text-lg mb-8">点击线路卡片，查看站点详情、运营时间与专属线路图</p>
+            <a href="#lines" class="inline-block bg-white text-[var(--line13_qh2)] font-bold py-3 px-8 rounded-full hover:bg-gray-100 transition">开始探索</a>
+        </div>
+    </header>
+    <!-- 线路库（可点击卡片） -->
+    <section id="lines" class="container mx-auto px-6 py-16">
+        <h2 class="text-3xl font-bold text-center mb-12">交互式线路指南</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            
+            <!-- 6号线卡片 -->
+            <div class="line-card" data-line="line6" style="border-left: 4px solid var(--line6)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line6);"></span>
+                        <h3 class="text-xl font-bold">6号线</h3>
+                    </div>
+                    <p class="text-gray-600">春城第一条线路，为出生点和行铁枢纽奠定基础</p>
+                </div>
+            </div>
+            <!-- 7号线卡片 -->
+            <div class="line-card" data-line="line7" style="border-left: 4px solid var(--line7)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line7);"></span>
+                        <h3 class="text-xl font-bold">7号线</h3>
+                    </div>
+                    <p class="text-gray-600">连接2个村庄，和罗东线形成并行状态</p>
+                </div>
+            </div>
+            <!-- 行铁线卡片 -->
+            <div class="line-card" data-line="line3" style="border-left: 4px solid var(--line3)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line3);"></span>
+                        <h3 class="text-xl font-bold">行铁线</h3>
+                    </div>
+                    <p class="text-gray-600">站厅使用平滑石英块，一条站距600格的线路</p>
+                </div>
+            </div>
+            <!-- 新西北线卡片 -->
+            <div class="line-card" data-line="line4" style="border-left: 4px solid var(--line4)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line4);"></span>
+                        <h3 class="text-xl font-bold">新西北线</h3>
+                    </div>
+                    <p class="text-gray-600">贯通行铁3个区，典型的东西干线</p>
+                </div>
+            </div>
+            <!-- 市郊线卡片 -->
+            <div class="line-card" data-line="line5" style="border-left: 4px solid var(--line5)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line5);"></span>
+                        <h3 class="text-xl font-bold">市郊线</h3>
+                    </div>
+                    <p class="text-gray-600">拥有当时全城最远站距，拥有现在结构最复杂的罗村站</p>
+                </div>
+            </div>
+            <!-- 罗东线卡片 -->
+            <div class="line-card" data-line="line6_ldx" style="border-left: 4px solid var(--line6_ldx)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line6_ldx);"></span>
+                        <h3 class="text-xl font-bold">罗东线</h3>
+                    </div>
+                    <p class="text-gray-600">拥有西村南的一层岛式站台，值得一坐</p>
+                </div>
+            </div>
+            <!-- 岑村高铁卡片 -->
+            <div class="line-card" data-line="line7_ccgt" style="border-left: 4px solid var(--line7_ccgt)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line7_ccgt);"></span>
+                        <h3 class="text-xl font-bold">岑村高铁</h3>
+                    </div>
+                    <p class="text-gray-600">第一条使用伦敦地铁车模的线路</p>
+                </div>
+            </div>
+            <!-- 上京线卡片 -->
+            <div class="line-card" data-line="line8_sjj" style="border-left: 4px solid var(--line8_sjj)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line8_sjj);"></span>
+                        <h3 class="text-xl font-bold">上京线</h3>
+                    </div>
+                    <p class="text-gray-600">模仿上海金山铁路车站名字，与行铁线同车模</p>
+                </div>
+            </div>
+            <!-- 上京东线卡片 -->
+            <div class="line-card" data-line="line9_sjd" style="border-left: 4px solid var(--line9_sjd)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line9_sjd);"></span>
+                        <h3 class="text-xl font-bold">上京东线</h3>
+                    </div>
+                    <p class="text-gray-600">模仿上海金山铁路车站名字，与行铁线同车模</p>
+                </div>
+            </div>
+            <!-- 罗村北线卡片 -->
+            <div class="line-card" data-line="line10_lcb" style="border-left: 4px solid var(--line10_lcb)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line10_lcb);"></span>
+                        <h3 class="text-xl font-bold">罗村北线</h3>
+                    </div>
+                    <p class="text-gray-600">第一条粉线</p>
+                </div>
+            </div>
+            <!-- 西河线卡片 -->
+            <div class="line-card" data-line="line11_xhx" style="border-left: 4px solid var(--line11_xhx)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line11_xhx);"></span>
+                        <h3 class="text-xl font-bold">西河线</h3>
+                    </div>
+                    <p class="text-gray-600">使用网易地图御街镇3.0的西河子节点展开的，第一条使用Class 802的线路</p>
+                </div>
+            </div>
+            <!-- 前湖1号线卡片 -->
+            <div class="line-card" data-line="line12_qh1" style="border-left: 4px solid var(--line12_qh1)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line12_qh1);"></span>
+                        <h3 class="text-xl font-bold">前湖1号线</h3>
+                    </div>
+                    <p class="text-gray-600">能从车上看到实验航线</p>
+                </div>
+            </div>
+            <!-- 前湖2号线卡片 -->
+            <div class="line-card" data-line="line13_qh2" style="border-left: 4px solid var(--line13_qh2)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line13_qh2);"></span>
+                        <h3 class="text-xl font-bold">前湖2号线</h3>
+                    </div>
+                    <p class="text-gray-600">拥有现今全程最远的站距</p>
+                </div>
+            </div>
+            <!-- 前湖3号线卡片 -->
+            <div class="line-card" data-line="line14_qh3" style="border-left: 4px solid var(--line14_qh3)">
+                <div class="p-6">
+                    <div class="flex items-center mb-4">
+                        <span class="line-badge" style="background-color: var(--line14_qh3);"></span>
+                        <h3 class="text-xl font-bold">前湖3号线</h3>
+                    </div>
+                    <p class="text-gray-600">有站厅高度最高的海口北站</p>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- 6号线模态框（含线路图） -->
+    <div class="modal" id="line6-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">6号线 · 春城首条线路</h3>
+            <p class="text-gray-700 mb-6">春城第一条线路，为出生点和行铁枢纽奠定基础</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为6号线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 172748.png" alt="6号线线路图">
+                    <p class="text-center text-sm mt-2">6号线站点示意图</p>
+                </div>
+                <!-- 示例：添加实际线路图 -->
+                <div class="img-item">
+                    <img src="your-image-url-6-1.jpg" alt="6号线场景1">
+                    <p class="text-center text-sm mt-2">6号线列车实拍</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>出生点（可换乘：新西北线、市郊线、上京线、上京东线）</li>
+                <li>村庄西（可换乘：罗东线、行铁线、7号线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 7号线模态框（含线路图） -->
+    <div class="modal" id="line7-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">7号线 · 村庄联络线</h3>
+            <p class="text-gray-700 mb-6">连接2个村庄，和罗东线形成并行状态</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为7号线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 172810.png" alt="7号线线路图">
+                    <p class="text-center text-sm mt-2">7号线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-7-1.jpg" alt="7号线场景1">
+                    <p class="text-center text-sm mt-2">7号线中村站</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>西村</li>
+                <li>中村（可换乘：6号线、罗东线、行铁线）</li>
+                <li>东村（可换乘：罗东线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 行铁线模态框（含线路图） -->
+    <div class="modal" id="line3-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">行铁线 · 石英大动脉</h3>
+            <p class="text-gray-700 mb-6">站厅使用平滑石英块，一条站距600格的线路</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为行铁线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173028.png" alt="行铁线线路图">
+                    <p class="text-center text-sm mt-2">行铁线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-3-1.jpg" alt="行铁线场景1">
+                    <p class="text-center text-sm mt-2">行铁线石英站厅</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>行铁西区（可换乘：6号线、7号线、罗东线）</li>
+                <li>行铁东区（可换乘：新西北线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 新西北线模态框（含线路图） -->
+    <div class="modal" id="line4-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">新西北线 · 三区贯通线</h3>
+            <p class="text-gray-700 mb-6">贯通行铁3个区，典型的东西干线</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为新西北线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173202.png" alt="新西北线线路图">
+                    <p class="text-center text-sm mt-2">新西北线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-4-1.jpg" alt="新西北线场景1">
+                    <p class="text-center text-sm mt-2">新西北线行铁东区站</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>新西北</li>
+                <li>出生点（可换乘：6号线、上京线、市郊线、上京东线）</li>
+                <li>行铁东区（可换乘：行铁线）</li>
+                <li>行铁南区</li>
+                <li>行铁北区</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 市郊线模态框（含线路图） -->
+    <div class="modal" id="line5-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">市郊线 · 远郊辐射线</h3>
+            <p class="text-gray-700 mb-6">拥有当时全城最远站距，拥有现在结构最复杂的罗村站</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为市郊线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173400.png" alt="市郊线线路图">
+                    <p class="text-center text-sm mt-2">市郊线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-5-1.jpg" alt="市郊线场景1">
+                    <p class="text-center text-sm mt-2">市郊线罗村站</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>出生点（可换乘：6号线、上京线、上京东线、新西北线）</li>
+                <li>罗村（可换乘：罗东线）</li>
+                <li>南村（可换乘：前湖1号线、前湖2号线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 罗东线模态框（含线路图） -->
+    <div class="modal" id="line6_ldx-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">罗东线 · 岛式站台线</h3>
+            <p class="text-gray-700 mb-6">拥有西村南的一层岛式站台，值得一坐</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为罗东线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173329.png" alt="罗东线线路图">
+                    <p class="text-center text-sm mt-2">罗东线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-6ldx-1.jpg" alt="罗东线场景1">
+                    <p class="text-center text-sm mt-2">罗东线西村南站</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>西村南</li>
+                <li>行铁西区（可换乘：6号线、7号线、行铁线）</li>
+                <li>东村（可换乘：7号线）</li>
+                <li>罗村（可换乘：市郊线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 岑村高铁模态框（含线路图） -->
+    <div class="modal" id="line7_ccgt-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">岑村高铁 · 英伦车模线</h3>
+            <p class="text-gray-700 mb-6">第一条使用伦敦地铁车模的线路</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为岑村高铁线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173103.png" alt="岑村高铁线路图">
+                    <p class="text-center text-sm mt-2">岑村高铁站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-7ccgt-1.jpg" alt="岑村高铁场景1">
+                    <p class="text-center text-sm mt-2">岑村高铁列车</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>东村北动车站（可换乘：罗村北线、西河线）</li>
+                <li>明村高铁站（可换乘：上京东线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 上京线模态框（含线路图） -->
+    <div class="modal" id="line8_sjj-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">上京线 · 金山铁路风线</h3>
+            <p class="text-gray-700 mb-6">模仿上海金山铁路车站名字，与行铁线同车模</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为上京线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173129.png" alt="上京线线路图">
+                    <p class="text-center text-sm mt-2">上京线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-8sjj-1.jpg" alt="上京线场景1">
+                    <p class="text-center text-sm mt-2">上京线新桥站</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>上京</li>
+                <li>出生点（可换乘：6号线、市郊线、新西北线、上京东线）</li>
+                <li>春申</li>
+                <li>新桥（可换乘：前湖2号线）</li>
+                <li>车墩（可换乘：前湖1号线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 上京东线模态框（含线路图） -->
+    <div class="modal" id="line9_sjd-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">上京东线 · 金山延伸线</h3>
+            <p class="text-gray-700 mb-6">模仿上海金山铁路车站名字，与行铁线同车模</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为上京东线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173144.png" alt="上京东线线路图">
+                    <p class="text-center text-sm mt-2">上京东线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-9sjd-1.jpg" alt="上京东线场景1">
+                    <p class="text-center text-sm mt-2">上京东线金山卫站</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>出生点（可换乘：6号线、市郊线、上京线、新西北线）</li>
+                <li>叶榭</li>
+                <li>亭林</li>
+                <li>明村高铁站（可换乘：岑村高铁）</li>
+                <li>金山园区</li>
+                <li>金山卫</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 罗村北线模态框（含线路图） -->
+    <div class="modal" id="line10_lcb-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">罗村北线 · 粉色首秀线</h3>
+            <p class="text-gray-700 mb-6">第一条粉线</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为罗村北线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 172834.png" alt="罗村北线线路图">
+                    <p class="text-center text-sm mt-2">罗村北线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-10lcb-1.jpg" alt="罗村北线场景1">
+                    <p class="text-center text-sm mt-2">罗村北线列车</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>东村北动车站（可换乘：西河线、岑村高铁）</li>
+                <li>北村东动车站</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 西河线模态框（含线路图） -->
+    <div class="modal" id="line11_xhx-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">西河线 · 御街镇节点线</h3>
+            <p class="text-gray-700 mb-6">使用网易地图御街镇3.0的西河子节点展开的，第一条使用Class 802的线路</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为西河线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173048.png" alt="西河线线路图">
+                    <p class="text-center text-sm mt-2">西河线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-11xhx-1.jpg" alt="西河线场景1">
+                    <p class="text-center text-sm mt-2">西河线西河子站</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>东村北动车站（可换乘：罗村北线、岑村高铁）</li>
+                <li>西河子北动车站</li>
+                <li>西河子</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 前湖1号线模态框（含线路图） -->
+    <div class="modal" id="line12_qh1-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">前湖1号线 · 实验航线观景线</h3>
+            <p class="text-gray-700 mb-6">能从车上看到实验航线</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为前湖1号线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 172914.png" alt="前湖1号线线路图">
+                    <p class="text-center text-sm mt-2">前湖1号线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-12qh1-1.jpg" alt="前湖1号线场景1">
+                    <p class="text-center text-sm mt-2">前湖1号线实验航线区间</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>车墩（可换乘：上京线）</li>
+                <li>前湖云岭</li>
+                <li>云松</li>
+                <li>马城北</li>
+                <li>南村（可换乘：前湖2号线、市郊线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 前湖2号线模态框（含线路图） -->
+    <div class="modal" id="line13_qh2-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">前湖2号线 · 超长站距线</h3>
+            <p class="text-gray-700 mb-6">拥有现今全程最远的站距</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为前湖2号线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 172955.png" alt="前湖2号线线路图">
+                    <p class="text-center text-sm mt-2">前湖2号线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-13qh2-1.jpg" alt="前湖2号线场景1">
+                    <p class="text-center text-sm mt-2">前湖2号线超长区间</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>新桥（可换乘：上京线）</li>
+                <li>美兰</li>
+                <li>新桥西</li>
+                <li>海贝</li>
+                <li>海口（可换乘：前湖3号线）</li>
+                <li>南村（可换乘：前湖1号线、市郊线）</li>
+                <li>星海（可换乘：前湖3号线）</li>
+                <li>段中（可换乘：前湖3号线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 前湖3号线模态框（含线路图） -->
+    <div class="modal" id="line14_qh3-modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3 class="text-2xl font-bold mb-4">前湖3号线 · 高站厅线</h3>
+            <p class="text-gray-700 mb-6">有站厅高度最高的海口北站</p>
+            
+            <div class="img-grid">
+                <div class="img-item">
+                    <!-- 替换为前湖3号线线路图实际URL -->
+                    <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 173012.png" alt="前湖3号线线路图">
+                    <p class="text-center text-sm mt-2">前湖3号线站点示意图</p>
+                </div>
+                <div class="img-item">
+                    <img src="your-image-url-14qh3-1.jpg" alt="前湖3号线场景1">
+                    <p class="text-center text-sm mt-2">前湖3号线海口北站</p>
+                </div>
+            </div>
+            <h4 class="text-lg font-bold mt-6">线路站点</h4>
+            <ul class="list-disc pl-6 mt-2 text-gray-700">
+                <li>海口（可换乘：前湖2号线）</li>
+                <li>海口北</li>
+                <li>前海</li>
+                <li>陈庄</li>
+                <li>高桥</li>
+                <li>段中（可换乘：前湖2号线）</li>
+                <li>星海（可换乘：前湖2号线）</li>
+            </ul>
+        </div>
+    </div>
+    <!-- 线路总图区域 -->
+    <section id="map" class="container mx-auto px-6 py-16 bg-gray-100">
+        <h2 class="text-3xl font-bold text-center mb-8">春城轨道交通线路总图</h2>
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <!-- 替换为完整线路总图实际URL -->
+            <img src="c:\Users\15806\Pictures\Screenshots\屏幕截图 2025-09-07 155944.png" alt="春城轨道交通线路总图" class="w-full h-auto rounded-lg">
+        </div>
+    </section>
+    <!-- 下载区域（新增Modrinth按钮） -->
+    <section id="download" class="container mx-auto px-6 py-16 bg-gray-100">
+        <div class="text-center">
+            <h2 class="text-3xl font-bold mb-6">下载春城轨道交通地图</h2>
+            <p class="text-gray-600 mb-8">包含完整14条线路与39座车站的详细地图，多种下载方式可选</p>
+            
+            <div class="bg-gray-50 p-8 rounded-lg inline-block shadow-md">
+                <!-- 原有百度网盘下载按钮 -->
+                <a href="https://pan.baidu.com/s/18d-9MG7MR35KKvgxytDNRQ?pwd=mtrc" 
+                   class="download-btn" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-cloud-download-alt"></i>
+                    <span>百度网盘下载</span>
+                </a>
+                <p class="mt-4 text-gray-600">版本：v1.0.0 | 提取码：8002</p>
+
+                <!-- 新增Modrinth整合包下载按钮 -->
+                <a href="https://modrinth.com/project/maplecity-2024-server-pack" 
+                   class="modrinth-btn mt-4" target="_blank" rel="noopener noreferrer">
+                    <i class="fab fa-modx"></i> <!-- Modrinth标志性图标 -->
+                    <span>Modrinth整合包下载</span>
+                </a>
+                <p class="mt-2 text-gray-600">直接获取打包好的服务器整合包</p>
+                
+                <div class="mt-8">
+                    <h3 class="text-lg font-semibold mb-4">下载说明</h3>
+                    <div class="bg-white p-4 rounded-lg text-left">
+                        <ol class="list-decimal list-inside text-gray-700 space-y-2">
+                            <li>百度网盘：适合单独下载地图文件，需手动导入游戏</li>
+                            <li>Modrinth：适合直接获取服务器整合包，含完整依赖模组</li>
+                            <li>下载后请按照压缩包内说明完成安装</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-12 bg-gray-50 p-6 rounded-lg max-w-2xl mx-auto">
+                <h3 class="text-lg font-semibold mb-2">安装说明</h3>
+                <ol class="list-decimal list-inside text-left text-gray-700 space-y-2">
+                    <li>下载地图包文件 (.mcworld 或 .zip) 或 Modrinth整合包</li>
+                    <li>确保已安装 Minecraft 1.19+ 及 MTR 模组 (版本 4.0+)</li>
+                    <li>地图文件：直接导入我的世界客户端</li>
+                    <li>整合包：解压后运行启动器即可启动服务器</li>
+                    <li>启用地图对应的资源包，开始体验！</li>
+                </ol>
+            </div>
+        </div>
+    </section>
+    <!-- 页脚（含联系邮箱） -->
+    <footer class="bg-gray-800 text-white py-8">
+        <div class="container mx-auto px-6 text-center">
+            <div class="flex items-center justify-center mb-4">
+                <i class="fas fa-subway text-[var(--line13_qh2)] text-2xl mr-2"></i>
+                <span class="text-xl font-bold">春城轨道交通网络</span>
+            </div>
+            <p class="mb-4">© 2025 春城轨道交通网络 | 我的世界MTR地图项目</p>
+            <div class="flex justify-center space-x-6 mb-4">
+                <a href="mailto:15806096926@163.com" class="text-gray-400 hover:text-white transition flex items-center">
+                    <i class="fas fa-envelope text-xl mr-2"></i>
+                    <span>15806096926@163.com</span>
+                </a>
+            </div>
+            <p class="text-sm text-gray-500">本项目仅供学习交流使用</p>
+        </div>
+    </footer>
+    <!-- 脚本：模态框交互 -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // 线路卡片点击 -> 打开对应模态框
+            document.querySelectorAll('.line-card').forEach(card => {
+                card.addEventListener('click', function() {
+                    const lineId = this.dataset.line;
+                    const modal = document.getElementById(`${lineId}-modal`);
+                    if (modal) modal.style.display = 'block';
+                });
+            });
+            // 关闭按钮点击 -> 关闭模态框
+            document.querySelectorAll('.close-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    this.closest('.modal').style.display = 'none';
+                });
+            });
+            // 点击模态框外部 -> 关闭模态框
+            window.addEventListener('click', e => {
+                if (e.target.classList.contains('modal')) e.target.style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
